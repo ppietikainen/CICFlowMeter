@@ -123,7 +123,7 @@ public class Cmd {
 
         FlowGenerator flowGen = new FlowGenerator(true, flowTimeout, activityTimeout);
         flowGen.addFlowListener(new FlowListener(fileName,outPath));
-        boolean readIP6 = false;
+        boolean readIP6 = true;
         boolean readIP4 = true;
         PacketReader packetReader = new PacketReader(inputFile, readIP4, readIP6);
 
