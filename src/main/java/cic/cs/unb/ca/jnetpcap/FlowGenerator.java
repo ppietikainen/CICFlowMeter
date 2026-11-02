@@ -188,7 +188,7 @@ public class FlowGenerator {
                     flow.setTcpFlowState(TcpFlowState.READY_FOR_TERMINATION);
                 }
                 currentFlows.put(id, flow);
-            } else if (flow.getProtocol() == ProtocolEnum.ICMP) {
+            } else if (flow.getProtocol() == ProtocolEnum.ICMP || flow.getProtocol() == ProtocolEnum.ICMPV6) {
                 // create a new flow if the icmp code and types are different
                 if (flow.getIcmpCode() != packet.getIcmpCode() &&
                         flow.getIcmpType() != packet.getIcmpType()) {

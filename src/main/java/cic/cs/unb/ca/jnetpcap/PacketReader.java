@@ -246,23 +246,43 @@ public class PacketReader {
 				packetInfo = new BasicPacketInfo(this.generator);
 				packetInfo.setSrc(this.ipv6.source());
 				packetInfo.setDst(this.ipv6.destination());
-				packetInfo.setTimeStamp(packet.getCaptureHeader().timestampInMillis());			
+				packetInfo.setTimeStamp(packet.getCaptureHeader().timestampInMicros());			
 
 				// set L3 header length
 				// getHeaderLength() from class JHeader is in the inherited methods list of class Ip6 in the javadoc of jnetpcap
 				packetInfo.setPacketHeaderBytes(this.ipv6.getHeaderLength());
 
-				if(packet.hasHeader(this.tcp)){						
+				if (this.ipv6.next() == 58) {
+					// ICMPv6 first, as on IPv4: error messages embed the original TCP/UDP header.
+					int icmpOffset = this.ipv6.getOffset() + this.ipv6.getHeaderLength();
+					packetInfo.setProtocol(ProtocolEnum.ICMPV6);
+					packetInfo.setSrcPort(0);
+					packetInfo.setDstPort(0);
+					packetInfo.setIcmpType(packet.getUByte(icmpOffset));
+					packetInfo.setIcmpCode(packet.getUByte(icmpOffset + 1));
+				} else if(packet.hasHeader(this.tcp)){						
 					packetInfo.setSrcPort(tcp.source());
 					packetInfo.setDstPort(tcp.destination());
 					packetInfo.setPayloadBytes(tcp.getPayloadLength());
 					packetInfo.setHeaderBytes(tcp.getHeaderLength());
 					packetInfo.setProtocol(ProtocolEnum.TCP);
+					packetInfo.setTCPWindow(tcp.window());
+					packetInfo.setFlagFIN(tcp.flags_FIN());
+					packetInfo.setFlagPSH(tcp.flags_PSH());
+					packetInfo.setFlagURG(tcp.flags_URG());
+					packetInfo.setFlagSYN(tcp.flags_SYN());
+					packetInfo.setFlagACK(tcp.flags_ACK());
+					packetInfo.setFlagECE(tcp.flags_ECE());
+					packetInfo.setFlagCWR(tcp.flags_CWR());
+					packetInfo.setFlagRST(tcp.flags_RST());
+					packetInfo.setTcpRetransmissionDTO(new TcpRetransmissionDTO(
+							this.ipv6.source(), tcp.seq(), tcp.ack(), tcp.getPayloadLength(),
+							tcp.window(), packet.getCaptureHeader().timestampInMicros()));
 				}else if(packet.hasHeader(this.udp)){
 					packetInfo.setSrcPort(udp.source());
 					packetInfo.setDstPort(udp.destination());
 					packetInfo.setPayloadBytes(udp.getPayloadLength());
-					packetInfo.setHeaderBytes(tcp.getHeaderLength());
+					packetInfo.setHeaderBytes(udp.getHeaderLength());
 					packetInfo.setProtocol(ProtocolEnum.UDP);
 				}		
 			}
@@ -420,7 +440,7 @@ public class PacketReader {
 				packetInfo = new BasicPacketInfo(idGen);
 				packetInfo.setSrc(protocol.getIpv6().source());
 				packetInfo.setDst(protocol.getIpv6().destination());
-				packetInfo.setTimeStamp(packet.getCaptureHeader().timestampInMillis());			
+				packetInfo.setTimeStamp(packet.getCaptureHeader().timestampInMicros());			
 				
 				// set L3 header length
 				packetInfo.setPacketHeaderBytes(protocol.getIpv6().getHeaderLength());

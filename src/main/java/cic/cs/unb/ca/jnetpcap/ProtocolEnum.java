@@ -7,7 +7,8 @@ public enum ProtocolEnum {
     IGMP(2),
     TCP(6),
     UDP(17),
-    SCTP(132);
+    SCTP(132),
+    ICMPV6(58);
 
     public final int val;
 
