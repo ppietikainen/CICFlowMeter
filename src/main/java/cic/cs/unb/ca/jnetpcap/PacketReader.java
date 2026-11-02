@@ -189,19 +189,11 @@ public class PacketReader {
 					packetInfo.setProtocol(ProtocolEnum.SCTP);
 			}else {
 
-					Ip4.Ip4Type ip4Type = this.ipv4.typeEnum();
-
-					switch (ip4Type) {
-						case IGMP:
-							packetInfo.setProtocol(ProtocolEnum.IGMP);
-							break;
-						default:
-							/** Note, we are not supporting all protocols, just the ones we are interested in, and adding
-							    them as desired. To be considered at a future point, if we want to include a lot more protocols,
-							    it may be a lot cleaner to just use the Ip4.Ip4Type enum directly.
-							 */
-							logger.debug("Currently unsupported Ip4 protocol: {} --description: {} ", ip4Type.name(), ip4Type.getDescription());
-							break;
+					int ip4Proto = packet.getUByte(this.ipv4.getOffset() + 9);
+					if (ip4Proto == 2) {
+						packetInfo.setProtocol(ProtocolEnum.IGMP);
+					} else {
+						logger.debug("Currently unsupported Ip4 protocol: {}", ip4Proto);
 					}
 
 
@@ -242,7 +234,7 @@ public class PacketReader {
 	private BasicPacketInfo getIpv6Info(PcapPacket packet){
 		BasicPacketInfo packetInfo = null;
 		try{
-			if(packet.hasHeader(ipv6)){
+			if(packet.hasHeader(ipv6) && (packet.getUByte(this.ipv6.getOffset()) >> 4) == 6){
 				packetInfo = new BasicPacketInfo(this.generator);
 				packetInfo.setSrc(this.ipv6.source());
 				packetInfo.setDst(this.ipv6.destination());
@@ -252,9 +244,25 @@ public class PacketReader {
 				// getHeaderLength() from class JHeader is in the inherited methods list of class Ip6 in the javadoc of jnetpcap
 				packetInfo.setPacketHeaderBytes(this.ipv6.getHeaderLength());
 
-				if (this.ipv6.next() == 58) {
+				int nh = this.ipv6.next();
+				int l4 = this.ipv6.getOffset() + 40;
+				for (int i = 0; i < 8 && (nh == 0 || nh == 43 || nh == 60 || nh == 44) && l4 + 8 <= packet.size(); i++) {
+					if (nh == 44) {
+						if ((packet.getUShort(l4 + 2) & 0xFFF8) != 0) break; // non-first fragment: no L4 header
+						nh = packet.getUByte(l4);
+						l4 += 8;
+					} else {
+						int next = packet.getUByte(l4);
+						l4 += (packet.getUByte(l4 + 1) + 1) * 8;
+						nh = next;
+					}
+				}
+				if (nh == 44) {
+					// Non-first fragment: jnetpcap reads its payload as a TCP/UDP header. Protocol 0
+					// and no ports, as on IPv4.
+				} else if (nh == 58 && l4 + 2 <= packet.size()) {
 					// ICMPv6 first, as on IPv4: error messages embed the original TCP/UDP header.
-					int icmpOffset = this.ipv6.getOffset() + this.ipv6.getHeaderLength();
+					int icmpOffset = l4;
 					packetInfo.setProtocol(ProtocolEnum.ICMPV6);
 					packetInfo.setSrcPort(0);
 					packetInfo.setDstPort(0);
